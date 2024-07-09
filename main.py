@@ -3,173 +3,143 @@ import anthropic
 import os
 import random
 import marvin
-from marvin.utilities import pydantic
 from dotenv import load_dotenv
-from typing import Literal
 
 load_dotenv()  # take environment variables from .env.
-
-st.title('Butler AI')
 
 client = anthropic.Anthropic(
     api_key=os.environ.get("ANTHROPIC_API_KEY"),
 )
 marvin.settings.openai.api_key = os.environ.get("MARVIN_KEY"),
 
+# Inject CSS from file
+with open('static/styles.css') as css:
+    st.html(f"<style>{css.read()}</style>")
 
-st.html('''
-<style>
-    @import url('https://fonts.googleapis.com/css2?family=Rubik:ital,wght@0,300..900;1,300..900&display=swap');
-    
-    html * {
-        font-family: 'Rubik', sans-serif; 
-        color: #FFFFFF;
-    }
-    
-    [data-testid="stModal"] {
-        background: none !important;
-        
-        & > div {
-            align-items: center;
-        }
-    }
+APPLICATION_STATES = ["START", "CUISINE", "DIET", "FLAVORS", "MEAL", "END"]
 
-    [data-testid="stApp"] {
-        background: url(app/static/bg-image.png);
-        background-size: cover;
-        background-position: center;
-        
-        &::before {
-            position: absolute;
-            content: "";
-            width: 100%;
-            height: 100%;
-            top: 0;
-            left: 0;
-            background-color: rgba(0, 0, 0, 0.5);
-            filter: blur(100px);
-        }
-    }
-    [data-testid="column"] {
-        padding: 20px;
-        background-color: rgb(14, 17, 23);
-        border-radius: 10px;
-        text-align: center;
-    [data-testid="stImage"] {
-      display: block;
-      margin-left: auto;
-      margin-right: auto;
-      width: 50%;
-    }
-    [data-testid="stTextInput"] {
-        margin-top: 20px;
-        }
-    [data-testid="stHorizontalBlock"] {
-        display: flex;
-       align-items: flex-start;
-        }
-</style>
-''')
+# Options
+CUISINE_OPTIONS = ["American", "Chinese", "Indian", "Italian", "Japanese", "Mexican", "Thai", "No Specific Cuisine"]
+DIET_OPTIONS = ["Vegetarian", "Vegan", "Keto", "Paleo", "No Specific Diet"]
+FLAVORS_OPTIONS = ["Savory", "Sweet", "Spicy", "Sour", "Bitter", "No Specific Flavor"]
+MEAL_OPTIONS = ["Breakfast", "Lunch", "Dinner", "Snack", "No Specific Meal"]
 
-if "greeted" not in st.session_state:
-    st.session_state.greeted = False
-
-if "prompt" not in st.session_state:
-    st.session_state['prompt'] = []
-
-if "diet_preference" not in st.session_state:
-    st.session_state.diet_preference = None
-
-if "food_preference" not in st.session_state:
-    st.session_state.food_preference = None
+# Initialize session state
+for key in ["state", "cuisine", "diet", "flavors", "meal", "message", "expression"]:
+    if key not in st.session_state:
+        st.session_state[key] = "START" if key == "state" else None
 
 
-def greeting():
-    st.markdown("""
-Let me help you order the best food. Please fill out the form beside me.
-    """)
+def joke_maker(reason, expression):
+    st.session_state.message = client.messages.create(
+        model="claude-3-haiku-20240307",
+        max_tokens=1024,
+        messages=[
+            {
+                "role": "user",
+                "content": f"I want you to make a joke about {reason}, with this facial expression: {expression}"
+            }
+        ],
+        system="You are an ultimate stand up comedian that is a Dad Jokester. Your mission is to create hilarious "
+               "dad jokes based on the topic I provide, while incorporating the facial expression I specify into each "
+               "joke.  Make sure the expression stands out and enhances the humor of the joke. Don't be scared to use "
+               "controversial jokes. Do not mention the topic or "
+               "expression explicitly; just tell the joke and include the expression naturally. Do not use emojis"
+               "Be very concise"
+    )
+#TODO: Tune it a bit better
 
 
-def display_joke(diet):
-    if diet == "Vegetarian":
-        joke = random.choice([
-            "Save a cow, eat a vegetarian!",
-            "What do you call it when one chickpea murders another? A hummus-cide.",
-            "Why did the tomato turn red? Because it saw the salad dressing!",
-            "What do you call a fake noodle? An impasta.",
-            "Why did the tofu cross the road? To prove he wasn't chicken.",
-            "What do you call a sad strawberry? A blueberry.",
-        ])
-    else:
-        joke = random.choice([
-            "Why did the short carnivore hate poker? Because the steaks were too high.",
-            "What do you call a cow with no legs? Ground beef.",
-            "What do you call a cow with a twitch? Beef jerky.",
-            "What do you call a cow during an earthquake? A milkshake.",
-            "What do you call a cow that plays the guitar? A moo-sician.",
-            "Why did the carnivore pull the plug on his wife when she was in a coma? He didn't like vegetables.",
-        ])
-    st.write(joke)
-
-
-def user_food_choice_input(diet):
-    return st.text_input(f"What specific {diet} food would you like to eat?")
-
-
-def prompt_content(diet, food):
-    return f"I am craving {food} today. I am a {diet}."
-
-
-def clear_session_state():
-    for key in list(st.session_state.keys()):
-        del st.session_state[key]
-
-
-class Response(pydantic.BaseModel):
-    expression: Literal["crying", "happy", "mentalillnes", "surprised"]
-
+if st.session_state.state is "START" or st.session_state.state is "CUISINE":
+    st.session_state.expression = "happy"
+else:
+    st.session_state.expression = random.choice(["crying", "happy", "mentalillnes", "surprised"])
 
 col1, col2 = st.columns(2, gap="large")
 with col1:
-    if not st.session_state.greeted:
-        st.image("static/happy.webp", width=150)
-        greeting()
-        st.session_state.greeted = True
-    if st.session_state['prompt']:
-        st.image("static/surprised.webp", width=150)
+    # Image
+    st.html(
+        f"<img src='app/static/{st.session_state.expression}.webp' id='butler-image' alt='The {st.session_state.expression}' style='width: 100%; max-width: 300px;'>")
+    if st.session_state.message is not None and st.session_state.state is not "END":
+        st.write(st.session_state.message.content[0].text) #TODO: Better styling for this text
+with col2:
+    # Main content
+    if st.session_state.state == "START":
+        st.html('''
+            <h1 style="font-size: 2.5rem; margin-top: 1rem; padding: 0;">The Butler</h1>
+            <p style="font-size: 1.125rem; margin-top: 0.5rem; margin-bottom: 0.25rem;">Let me take your order, partner.</p>
+        ''')
+        if st.button("Start", type="primary"):
+            st.session_state.state = "CUISINE"
+            st.rerun()
+
+    if st.session_state.state == "CUISINE":
+        st.html('''
+            <p style="font-size: 1.125rem; font-weight: 500; margin-top: 0.25rem; margin-bottom: 0;">
+                Do you have a specific cuisine in mind?
+            </p>
+        ''')
+        if cuisine := st.selectbox('', CUISINE_OPTIONS, index=None):
+            st.session_state.cuisine = cuisine
+            st.session_state.state = "DIET"
+            joke_maker(st.session_state.cuisine, st.session_state.expression)
+            st.rerun()
+
+    if st.session_state.state == "DIET":
+        st.html(f'''
+            <p style="font-size: 1.125rem; font-weight: 500; margin-top: 0.25rem; margin-bottom: 0;">
+                What's your diet preference, partner?
+            </p>
+        ''')
+        if diet := st.selectbox('', DIET_OPTIONS, index=None):
+            st.session_state.diet = diet
+            st.session_state.state = "FLAVORS"
+            joke_maker(st.session_state.diet, st.session_state.expression)
+            st.rerun()
+
+    if st.session_state.state == "FLAVORS":
+        st.html('''
+            <p style="font-size: 1.125rem; font-weight: 500; margin-top: 0.25rem; margin-bottom: 0;">
+                What flavors are you in the mood for?
+            </p>
+        ''')
+        flavors = st.multiselect('', FLAVORS_OPTIONS)  #TODO: Figure out why it reloads each time you chose one
+        if st.button("Next") and flavors:
+            st.session_state.flavors = flavors
+            st.session_state.state = "MEAL"
+            joke_maker(st.session_state.flavors, st.session_state.expression)
+            st.rerun()
+
+    if st.session_state.state == "MEAL":
+        st.html('''
+            <p style="font-size: 1.125rem; font-weight: 500; margin-top: 0.25rem; margin-bottom: 0;">
+                What meal are you ordering for?
+            </p>
+        ''')
+        if meal := st.selectbox('', MEAL_OPTIONS, index=None):
+            st.session_state.meal = meal
+            st.session_state.state = "END"
+            st.rerun()
+
+    if st.session_state.state == "END":
+        st.html('''
+            <h2 style="font-size: 2rem; margin-top: 0.5rem; padding: 0;">Order Summary</h2>
+        ''')
         message = client.messages.create(
             model="claude-3-haiku-20240307",
             max_tokens=1024,
-            messages=st.session_state['prompt'],
-            system="You are a helpful and attentive waiter from the wild west, designed to assist the user in "
-                   "ordering the best food based on their preferences. Be as concise as you can. Do not use language "
-                   "that continues the conversation. Your line is the last line."
+            messages=[
+                {
+                    "role": "user",
+                    "content": f"I want a {st.session_state.diet} meal with {st.session_state.cuisine} cuisine, featuring flavors like {st.session_state.flavors}, suitable for {st.session_state.meal}."
+                }
+            ],
+            system="You are a helpful and attentive funny waiter from the wild west, designed to assist the "
+                   "user in ordering the best food based on their preferences. Be as concise as you can. "
+                   "Do not use language that continues the conversation. Your line is the last line. "
         )
-        # expresion = marvin.extract(f"He is a {st.session_state.diet_preference}, that wants {st.session_state.food_preference}", target=Response)
-        # st.image(f"static/{expresion}.webp", width=150)
-        st.write(message.content[0].text)
-    elif st.session_state.diet_preference is not None and st.session_state['prompt'] == []:
-        st.image("static/mentalillnes.webp", width=150)
-        display_joke(st.session_state.diet_preference)
-with col2:
-    if st.session_state.diet_preference is None:
-        diet_preference = st.selectbox('Preference', ['Vegetarian', 'Carnivor'], index=None)
-        if diet_preference:
-            st.session_state.diet_preference = diet_preference
-            st.rerun()
-    elif st.session_state.food_preference is None:
-        st.write(f"You are a {st.session_state.diet_preference}")
-        food_preference = user_food_choice_input(diet=st.session_state.diet_preference)
-        if food_preference:
-            st.session_state.food_preference = food_preference
-        if st.session_state.food_preference:
-            st.session_state['prompt'].append(
-                {"role": 'user', "content": prompt_content(st.session_state.diet_preference, st.session_state.food_preference)}
-            )
-            st.rerun()
-    else:
-        st.write(f"Your are a {st.session_state.diet_preference}")
-        st.write(f"You are craving {st.session_state.food_preference} today.")
-        if st.button("Reset"):
-            clear_session_state()
+        st.write(message.content[0].text) #TODO: Figure out where to put this text
+        if st.button("Reset", type="primary"):
+            for key in list(st.session_state.keys()):
+                del st.session_state[key]
             st.rerun()
