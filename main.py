@@ -49,51 +49,41 @@ st.html('''
 ''')
 
 
+if "greeted" not in st.session_state:
+    st.session_state.greeted = False
+
+if "prompt" not in st.session_state:
+    st.session_state.prompt = {"diet": None, "food": None}
+
 @st.experimental_dialog("Hi! I'm your AI waiter.")
 def greeting():
     st.markdown("""
 Let me help you order the best food. Please fill out the form beside me.
     """)
 
+@st.experimental_dialog("Tell me more")
+def user_food_choice_input(diet_preference):
+    st.markdown(f"""
+What specific {diet_preference} food you would like to eat?
+    """)
+    food_preference = st.text_input("")
+    if st.button("Next"):
+        st.session_state.prompt = {"diet": diet_preference, "food": food_preference}
+        st.rerun()
 
-greeting()
+
+if not st.session_state.greeted:
+    greeting()
+    st.session_state.greeted = True
 
 
-if food_choice := st.selectbox('Preferință', ['Vegetarian', 'Carnivor'], index=None):
-
-    match food_choice:
-        case "Vegetarian":
-            st.write('Ai ales vegetarian')
-        case "Carnivor":
-            st.write('Ai ales carnivor')
-
-#
-# if 'chat_history' not in st.session_state:
-#     st.session_state['chat_history'] = []
-#
-#
-# for msg in st.session_state['chat_history']:
-#     match msg['role']:
-#         case 'user':
-#             st.chat_message('user').write(msg['content'])
-#         case 'assistant':
-#             st.chat_message('assistant').write(msg['content'])
-#
-#
-# user_input = st.chat_input("Enter a message...")
-# if user_input:
-#     st.session_state['chat_history'].append(
-#         {"role": 'user', "content": user_input}
-#     )
-#     st.chat_message('user').write(user_input)
-#
-#     message = client.messages.create(
-#         model="claude-3-haiku-20240307",
-#         max_tokens=1024,
-#         messages=st.session_state['chat_history'],
-#         system="You are a sarcastic know-it-all with a heart of gold."
-#     )
-#     st.session_state['chat_history'].append(
-#         {"role": 'assistant', "content": message.content[0].text}
-#     )
-#     st.chat_message('assistant').write(message.content[0].text)
+if st.session_state.prompt['food'] and st.session_state.prompt['diet']:
+    st.write("""ai response here""")
+else:
+    if diet_preference := st.selectbox('Preference', ['Vegetarian', 'Carnivor'], index=None):
+        match diet_preference:
+            case "Vegetarian":
+                st.write('Ai ales vegetarian')
+            case "Carnivor":
+                st.write('Ai ales carnivor')
+        user_food_choice_input(diet_preference=diet_preference)
