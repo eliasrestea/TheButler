@@ -31,7 +31,6 @@
     }
     [data-testid="column"] {
         padding: 20px;
-        background-color: rgb(14, 17, 23);
         border-radius: 10px;
         text-align: center;
     [data-testid="stImage"] {
