@@ -1,6 +1,7 @@
 import streamlit as st
 import anthropic
 import os
+import random
 
 from dotenv import load_dotenv
 
@@ -45,6 +46,24 @@ st.html('''
             filter: blur(100px);
         }
     }
+    [data-testid="column"] {
+        padding: 20px;
+        background-color: rgb(14, 17, 23);
+        border-radius: 10px;
+        text-align: center;
+    [data-testid="stImage"] {
+      display: block;
+      margin-left: auto;
+      margin-right: auto;
+      width: 50%;
+    }
+    [data-testid="stTextInput"] {
+        margin-top: 20px;
+        }
+    [data-testid="stHorizontalBlock"] {
+        display: flex;
+       align-items: flex-start;
+        }
 </style>
 ''')
 
@@ -54,39 +73,91 @@ if "greeted" not in st.session_state:
 if "prompt" not in st.session_state:
     st.session_state['prompt'] = []
 
-@st.experimental_dialog("Hi! I'm your AI waiter.")
+if "diet_preference" not in st.session_state:
+    st.session_state.diet_preference = None
+
+if "food_preference" not in st.session_state:
+    st.session_state.food_preference = None
+
+
 def greeting():
     st.markdown("""
 Let me help you order the best food. Please fill out the form beside me.
     """)
 
 
-@st.experimental_dialog("Tell me more")
-def user_food_choice_input(diet_preference):
-    st.markdown(f"""
-What specific {diet_preference} food you would like to eat?
-    """)
-    food_preference = st.text_input("")
-    if st.button("Next"):
-        st.session_state['prompt'].append(
-            {"diet": diet_preference, "food": food_preference}
+def display_joke(diet):
+    if diet == "Vegetarian":
+        joke = random.choice([
+            "Save a cow, eat a vegetarian!",
+            "What do you call it when one chickpea murders another? A hummus-cide.",
+            "Why did the tomato turn red? Because it saw the salad dressing!",
+            "What do you call a fake noodle? An impasta.",
+            "Why did the tofu cross the road? To prove he wasn't chicken.",
+            "What do you call a sad strawberry? A blueberry.",
+        ])
+    else:
+        joke = random.choice([
+            "Why did the short carnivore hate poker? Because the steaks were too high.",
+            "What do you call a cow with no legs? Ground beef.",
+            "What do you call a cow with a twitch? Beef jerky.",
+            "What do you call a cow during an earthquake? A milkshake.",
+            "What do you call a cow that plays the guitar? A moo-sician.",
+            "Why did the carnivore pull the plug on his wife when she was in a coma? He didn't like vegetables.",
+        ])
+    st.write(joke)
+
+
+def user_food_choice_input(diet):
+    return st.text_input(f"What specific {diet} food would you like to eat?")
+
+
+def prompt_content(diet, food):
+    return f"I am craving {food} today. I am a {diet}."
+
+
+def clear_session_state():
+    for key in list(st.session_state.keys()):
+        del st.session_state[key]
+
+
+col1, col2 = st.columns(2, gap="large")
+with col1:
+    st.image("static/butler.png", width=150)
+    if not st.session_state.greeted:
+        greeting()
+        st.session_state.greeted = True
+    if st.session_state['prompt']:
+        message = client.messages.create(
+            model="claude-3-haiku-20240307",
+            max_tokens=1024,
+            messages=st.session_state['prompt'],
+            system="You are a helpful and attentive waiter from the wild west, designed to assist the user in "
+                   "ordering the best food based on their preferences. Be as concise as you can. Do not use language "
+                   "that continues the conversation. Your line is the last line."
         )
-        st.rerun()
-
-
-if not st.session_state.greeted:
-    greeting()
-    st.session_state.greeted = True
-
-if st.session_state['prompt']:
-    message = client.messages.create(
-        model="claude-3-haiku-20240307",
-        max_tokens=1024,
-        messages=st.session_state['prompt'],
-        system="You are a helpful and attentive butler, designed to assist the user in ordering the best food based "
-               "on their preferences."
-    )
-    st.write(message.content[0].text)
-else:
-    if diet_preference := st.selectbox('Preference', ['Vegetarian', 'Carnivor'], index=None):
-        user_food_choice_input(diet_preference=diet_preference)
+        st.write(message.content[0].text)
+    elif st.session_state.diet_preference is not None and st.session_state['prompt'] == []:
+        display_joke(st.session_state.diet_preference)
+with col2:
+    if st.session_state.diet_preference is None:
+        diet_preference = st.selectbox('Preference', ['Vegetarian', 'Carnivor'], index=None)
+        if diet_preference:
+            st.session_state.diet_preference = diet_preference
+            st.rerun()
+    elif st.session_state.food_preference is None:
+        st.write(f"You are a {st.session_state.diet_preference}")
+        food_preference = user_food_choice_input(diet=st.session_state.diet_preference)
+        if food_preference:
+            st.session_state.food_preference = food_preference
+        if st.session_state.food_preference:
+            st.session_state['prompt'].append(
+                {"role": 'user', "content": prompt_content(st.session_state.diet_preference, st.session_state.food_preference)}
+            )
+            st.rerun()
+    else:
+        st.write(f"Your are a {st.session_state.diet_preference}")
+        st.write(f"You are craving {st.session_state.food_preference} today.")
+        if st.button("Reset"):
+            clear_session_state()
+            st.rerun()
