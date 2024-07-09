@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 
 load_dotenv()  # take environment variables from .env.
 
-st.title('Chelner AI')
+st.title('Butler AI')
 
 client = anthropic.Anthropic(
     api_key=os.environ.get("ANTHROPIC_API_KEY"),
