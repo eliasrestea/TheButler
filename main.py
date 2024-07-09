@@ -48,18 +48,18 @@ st.html('''
 </style>
 ''')
 
-
 if "greeted" not in st.session_state:
     st.session_state.greeted = False
 
 if "prompt" not in st.session_state:
-    st.session_state.prompt = {"diet": None, "food": None}
+    st.session_state['prompt'] = []
 
 @st.experimental_dialog("Hi! I'm your AI waiter.")
 def greeting():
     st.markdown("""
 Let me help you order the best food. Please fill out the form beside me.
     """)
+
 
 @st.experimental_dialog("Tell me more")
 def user_food_choice_input(diet_preference):
@@ -68,7 +68,9 @@ What specific {diet_preference} food you would like to eat?
     """)
     food_preference = st.text_input("")
     if st.button("Next"):
-        st.session_state.prompt = {"diet": diet_preference, "food": food_preference}
+        st.session_state['prompt'].append(
+            {"diet": diet_preference, "food": food_preference}
+        )
         st.rerun()
 
 
@@ -76,14 +78,15 @@ if not st.session_state.greeted:
     greeting()
     st.session_state.greeted = True
 
-
-if st.session_state.prompt['food'] and st.session_state.prompt['diet']:
-    st.write("""ai response here""")
+if st.session_state['prompt']:
+    message = client.messages.create(
+        model="claude-3-haiku-20240307",
+        max_tokens=1024,
+        messages=st.session_state['prompt'],
+        system="You are a helpful and attentive butler, designed to assist the user in ordering the best food based "
+               "on their preferences."
+    )
+    st.write(message.content[0].text)
 else:
     if diet_preference := st.selectbox('Preference', ['Vegetarian', 'Carnivor'], index=None):
-        match diet_preference:
-            case "Vegetarian":
-                st.write('Ai ales vegetarian')
-            case "Carnivor":
-                st.write('Ai ales carnivor')
         user_food_choice_input(diet_preference=diet_preference)
