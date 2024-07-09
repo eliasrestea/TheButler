@@ -2,8 +2,10 @@ import streamlit as st
 import anthropic
 import os
 import random
-
+import marvin
+from marvin.utilities import pydantic
 from dotenv import load_dotenv
+from typing import Literal
 
 load_dotenv()  # take environment variables from .env.
 
@@ -12,6 +14,8 @@ st.title('Butler AI')
 client = anthropic.Anthropic(
     api_key=os.environ.get("ANTHROPIC_API_KEY"),
 )
+marvin.settings.openai.api_key = os.environ.get("MARVIN_KEY"),
+
 
 st.html('''
 <style>
@@ -121,13 +125,18 @@ def clear_session_state():
         del st.session_state[key]
 
 
+class Response(pydantic.BaseModel):
+    expression: Literal["crying", "happy", "mentalillnes", "surprised"]
+
+
 col1, col2 = st.columns(2, gap="large")
 with col1:
-    st.image("static/butler.png", width=150)
     if not st.session_state.greeted:
+        st.image("static/happy.webp", width=150)
         greeting()
         st.session_state.greeted = True
     if st.session_state['prompt']:
+        st.image("static/surprised.webp", width=150)
         message = client.messages.create(
             model="claude-3-haiku-20240307",
             max_tokens=1024,
@@ -136,8 +145,11 @@ with col1:
                    "ordering the best food based on their preferences. Be as concise as you can. Do not use language "
                    "that continues the conversation. Your line is the last line."
         )
+        # expresion = marvin.extract(f"He is a {st.session_state.diet_preference}, that wants {st.session_state.food_preference}", target=Response)
+        # st.image(f"static/{expresion}.webp", width=150)
         st.write(message.content[0].text)
     elif st.session_state.diet_preference is not None and st.session_state['prompt'] == []:
+        st.image("static/mentalillnes.webp", width=150)
         display_joke(st.session_state.diet_preference)
 with col2:
     if st.session_state.diet_preference is None:
