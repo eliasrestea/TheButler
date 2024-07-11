@@ -1,7 +1,9 @@
+import time
+
 import streamlit as st
 import anthropic
 import os
-import random
+
 from dotenv import load_dotenv
 
 load_dotenv()  # take environment variables from .env.
@@ -23,49 +25,19 @@ FLAVORS_OPTIONS = ["Savory", "Sweet", "Spicy", "Sour", "Bitter", "No Specific Fl
 MEAL_OPTIONS = ["Breakfast", "Lunch", "Dinner", "Snack", "No Specific Meal"]
 
 # Initialize session state
-for key in ["state", "cuisine", "diet", "flavors", "meal", "message", "expression"]:
+for key in ["state", "cuisine", "diet", "flavors", "meal"]:
     if key not in st.session_state:
         st.session_state[key] = "START" if key == "state" else None
 
-if st.session_state.expression is None:
-    st.session_state.expression = "happy"
+# Two columns
+col1, col2 = st.columns(2)
 
-
-def joke_maker(reason):
-    if st.session_state.state is "START" or st.session_state.state is "CUISINE":
-        st.session_state.expression = "happy"
-    else:
-        st.session_state.expression = random.choice(["crying", "happy", "mentalillnes", "surprised"])
-    st.session_state.message = client.messages.create(
-        model="claude-3-haiku-20240307",
-        max_tokens=1024,
-        messages=[
-            {
-                "role": "user",
-                "content": f"I want you to make a joke about {reason}, with this facial expression: {st.session_state.expression}"
-                "in mind. Be very very concise, never pass 60 words and do not be boring using lots of words."
-            }
-        ],
-        system="You are an ultimate stand up comedian that is a Dad Jokester. Never go out of character no one can know"
-               "you are an AI. Your mission is to create hilarious dad jokes based on the topic I provide, while"
-               "incorporating the facial expression I specify into each joke. Make sure the expression stands out"
-               "and enhances the humor of the joke but do NOT mention the topic or expression explicitly; remember NO ONE"
-               "can know you are an AI and i am givin you instructions. Don't be scared to use"
-               "controversial jokes. Just tell the joke and include the expression naturally, also NEVER use emojis."
-               "NEVER give up your character and never speak from someone else's perspective only from yours. Do not"
-               "user phrases like 'grins cheekily' or 'smirks' or 'leans on' or 'smiles' or 'cries' or 'chuckles' or "
-               "'laughs', 'raises eyebrows and leans in slightly' or anything like that. Be very concise never pass 60 words"
-    )
-
-
-col1, col2 = st.columns(2, gap="large")
 with col1:
-    st.html(
-        f"<img src='app/static/{st.session_state.expression}.webp' id='butler-image' alt='The {st.session_state.expression}' style='width: 100%; max-width: 300px;'>")
+    # Butler image
+    st.html("<img src='app/static/butler.png' id='butler-image' alt='The Butler' style='width: 100%; max-width: 300px;'>")
+
 with col2:
     # Main content
-    if st.session_state.message is not None and st.session_state.state is not "END":
-        st.html(f"<p style='margin-top: 2rem;'>{st.session_state.message.content[0].text}<p>")
     if st.session_state.state == "START":
         st.html('''
             <h1 style="font-size: 2.5rem; margin-top: 1rem; padding: 0;">The Butler</h1>
@@ -84,8 +56,8 @@ with col2:
         if cuisine := st.selectbox('', CUISINE_OPTIONS, index=None):
             st.session_state.cuisine = cuisine
             st.session_state.state = "DIET"
-            joke_maker(st.session_state.cuisine)
             st.rerun()
+        st.html('<span style="font-size: 0.875rem; font-weight: 500;">1 of 4</span>')
 
     if st.session_state.state == "DIET":
         st.html(f'''
@@ -96,8 +68,8 @@ with col2:
         if diet := st.selectbox('', DIET_OPTIONS, index=None):
             st.session_state.diet = diet
             st.session_state.state = "FLAVORS"
-            joke_maker(st.session_state.diet)
             st.rerun()
+        st.html('<span style="font-size: 0.875rem; font-weight: 500;">2 of 4</span>')
 
     if st.session_state.state == "FLAVORS":
         st.html('''
@@ -106,11 +78,11 @@ with col2:
             </p>
         ''')
         flavors = st.multiselect('', FLAVORS_OPTIONS)
-        if st.button("Next") and flavors:
+        if st.button("Next", type="primary") and flavors:
             st.session_state.flavors = flavors
             st.session_state.state = "MEAL"
-            joke_maker(st.session_state.flavors)
             st.rerun()
+        st.html('<span style="font-size: 0.875rem; font-weight: 500;">3 of 4</span>')
 
     if st.session_state.state == "MEAL":
         st.html('''
@@ -122,26 +94,36 @@ with col2:
             st.session_state.meal = meal
             st.session_state.state = "END"
             st.rerun()
+        st.html('<span style="font-size: 0.875rem; font-weight: 500;">4 of 4</span>')
 
     if st.session_state.state == "END":
         st.html('''
-            <h2 style="font-size: 2rem; margin-top: 0.5rem; padding: 0;">Order Summary</h2>
+            <h2 style="font-size: 2rem; margin-top: 0.5rem; padding: 0;">Summary</h2>
         ''')
-        message = client.messages.create(
-            model="claude-3-haiku-20240307",
-            max_tokens=1024,
-            messages=[
-                {
-                    "role": "user",
-                    "content": f"I want a {st.session_state.diet} meal with {st.session_state.cuisine} cuisine, featuring flavors like {st.session_state.flavors}, suitable for {st.session_state.meal}."
-                }
-            ],
-            system="You are a helpful and attentive funny waiter from the wild west, designed to assist the "
-                   "user in ordering the best food based on their preferences. Be as concise as you can. "
-                   "Do not use language that continues the conversation. Your line is the last line. "
-        )
-        st.write(message.content[0].text) 
-        if st.button("Reset", type="primary"):
-            for key in list(st.session_state.keys()):
-                del st.session_state[key]
-            st.rerun()
+        st.write(f"Cuisine: {st.session_state.cuisine}")
+        st.write(f"Diet: {st.session_state.diet}")
+        st.write(f"Flavors: {', '.join(st.session_state.flavors)}")
+        st.write(f"Meal: {st.session_state.meal}")
+
+if st.session_state.state == "END":
+    with st.container(border=True):
+        with st.status("Thinking 🤔...", expanded=True) as status:
+            # Get assistant response
+            message = client.messages.create(
+                model="claude-3-haiku-20240307",
+                max_tokens=1024,
+                system="You are a helpful butler that takes into account the user's prefered cuisine, diet, flavours and meal to suggest an appropriate dish."
+                       "You are also a cowboy, so you speak in a cowboy accent and address the user as 'partner'.",
+                messages=[
+                    {
+                        "role": "user",
+                        "content": f"I'd like a {st.session_state.meal} dish with {st.session_state.cuisine} cuisine, {', '.join(st.session_state.flavors)} flavors, and {st.session_state.diet} diet."
+                    }
+                ]
+            )
+            status.update(label="I think I know what you want...! 🤠")
+            time.sleep(1)
+            status.update(label="Found it! 🍽", state="complete")
+
+        # Display the response
+        st.write(f"{message.content[0].text}")
